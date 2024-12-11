@@ -37,11 +37,76 @@ def grabcut(img, rect, n_iter=5):
     return mask, bgGMM, fgGMM
 
 
-def initalize_GMMs(img, mask):
-    # TODO: implement initalize_GMMs
-    bgGMM = None
-    fgGMM = None
+def initalize_GMMs(img, mask,n_components=5):
+    # TODO: implement initalize_GMMs    
+    # Flatten the image to a 2D array (each pixel is a feature vector of 3 channels)
+      # (n_pixels, 3)
 
+    # Separate foreground and background pixels based on the mask
+    cntBG=0
+    cntFG=0
+    for i in range(len(mask)):
+        for j in range(len(mask[i])):
+            if mask[i][j]==0 or mask[i][j]==2:
+                cntBG+=1
+    for i in range(len(mask)):
+        for j in range(len(mask[i])):
+            if mask[i][j]==1 or mask[i][j]==3:
+                cntFG+=1
+    print(img[0][0])
+    fg_pixels = np.zeros((cntFG,2))
+    bg_pixels = np.zeros((cntBG,2))
+    fg_index=0
+    bg_index=0
+    for i in range(len(img)):
+        for j in range(len(img[i])):
+            if mask[i][j]==0:
+                bg_pixels[bg_index][0]=i
+                bg_pixels[bg_index][1]=j
+                bg_index+=1
+            if mask[i][j]==1:
+                fg_pixels[fg_index][0]=i
+                fg_pixels[fg_index][1]=j
+                fg_index+=1
+            if mask[i][j]==2:
+                bg_pixels[bg_index][0]=i
+                bg_pixels[bg_index][1]=j
+                bg_index+=1
+            if mask[i][j]==3:
+                fg_pixels[fg_index][0]=i
+                fg_pixels[fg_index][1]=j
+                fg_index+=1
+    #print(bg_pixels)
+    np.append(bg_pixels,1,axis=None)
+    #print(bg_pixels)
+    fg_pixels= np.float32( fg_pixels)
+    bg_pixels= np.float32( bg_pixels)
+    #print(bg_pixels)
+
+
+    # Define criteria for K-means
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+
+    # Perform k-means clustering on foreground pixels
+    _, fg_labels, fg_centers = cv2.kmeans(fg_pixels.astype(np.float32), n_components, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    
+    # Perform k-means clustering on background pixels
+    _, bg_labels, bg_centers = cv2.kmeans(bg_pixels.astype(np.float32), n_components, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+    
+    # Initialize GMM for foreground using K-means results
+    fg_means = fg_centers
+    fg_covariances = np.array([np.cov(fg_pixels.T)] * n_components)  # Covariance for all components
+    fg_weights = np.ones(n_components) / n_components  # Equal weights initially
+    
+    # Initialize GMM for background using K-means results
+    bg_means = bg_centers
+    bg_covariances = np.array([np.cov(bg_pixels.T)] * n_components)  # Covariance for all components
+    bg_weights = np.ones(n_components) / n_components  # Equal weights initially
+    
+    # Create GMM objects (not available in OpenCV, so we'll use our custom initialization)
+    bgGMM = {'means': bg_means, 'covariances': bg_covariances, 'weights': bg_weights}
+    fgGMM = {'means': fg_means, 'covariances': fg_covariances, 'weights': fg_weights}
+    print(bgGMM)
     return bgGMM, fgGMM
 
 
